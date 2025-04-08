@@ -1,6 +1,7 @@
 import argparse
 import os
 
+import smdebug.pytorch as smd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -8,7 +9,6 @@ import torchvision
 import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import ImageFile
-import smdebug.pytorch as smd
 from torch.utils.data import DataLoader
 
 # I had a problem with 'truncated image', setting this flag fixes the issue
@@ -32,7 +32,9 @@ def test(model, test_loader, criterion, device, hook=None):
             data, target = data.to(device), target.to(device)
             output = model(data)
             test_loss += criterion(output, target).item()  # sum up batch loss
-            pred = output.max(1, keepdim=True)[1]  # get the index of the max log-probability
+            pred = output.max(1, keepdim=True)[
+                1
+            ]  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
         test_loss /= total
@@ -50,7 +52,7 @@ def train(
     epoch,
     hook=None,
     log_interval: int = 10,
-    dry_run: bool = False
+    dry_run: bool = False,
 ):
     model.train()
     if hook:
@@ -64,7 +66,9 @@ def train(
         loss.backward()
         optimizer.step()
         if batch_idx % log_interval == 0:
-            pred = output.max(1, keepdim=True)[1]  # get the index of the max log-probability
+            pred = output.max(1, keepdim=True)[
+                1
+            ]  # get the index of the max log-probability
             correct = pred.eq(target.view_as(pred)).sum().item()
             accuracy = correct / pred.shape[0]
             print(
@@ -130,6 +134,17 @@ def create_data_loaders(train_dir, test_dir, batch_size):
     return train_data_loader, test_data_loader
 
 
+def create_hook():
+    # Check if running inside SageMaker training job
+    if os.getenv("SM_TRAINING_ENV"):
+        return smd.Hook.create_from_json_file()
+    else:
+        print("Running locally, using manual hook configuration.")
+        return smd.Hook(
+            out_dir="./debug_output", include_collections=["gradients", "biases"]
+        )
+
+
 def main(args):
 
     model = net(args.model_name)
@@ -138,8 +153,8 @@ def main(args):
     optimizer = optim.Adam(
         model.parameters(), args.learning_rate, weight_decay=args.weight_decay
     )
-    hook = smd.Hook.create_from_json_file()
-    hook.register_hook(model)
+    hook = create_hook()
+    hook.register_module(model)
     hook.register_loss(loss_criterion)
     print(f"My hook is {hook}")
 
@@ -160,14 +175,15 @@ def main(args):
             epoch,
             hook,
             args.log_interval,
-            args.dry_run
+            args.dry_run,
         )
 
         test(model, test_loader, loss_criterion, device, hook)
+        if args.dry_run:
+            return
 
-    if not args.dry_run:
-        with open(os.path.join(args.model_dir, "model.pth"), "wb") as f:
-            torch.save(model.state_dict(), f)
+    with open(os.path.join(args.model_dir, "model.pth"), "wb") as f:
+        torch.save(model.state_dict(), f)
 
 
 if __name__ == "__main__":
@@ -246,7 +262,7 @@ if __name__ == "__main__":
         "--dry-run",
         action="store_true",
         default=False,
-        help="quickly check a single pass"
+        help="quickly check a single pass",
     )
 
     args = parser.parse_args()
