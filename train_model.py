@@ -27,14 +27,13 @@ def test(model, test_loader, criterion, device, hook=None):
     test_loss = 0
     correct = 0
     total = len(test_loader.dataset)
+
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
             test_loss += criterion(output, target).item()  # sum up batch loss
-            pred = output.max(1, keepdim=True)[
-                1
-            ]  # get the index of the max log-probability
+            pred = output.max(1, keepdim=True)[1]  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
 
         test_loss /= total
@@ -49,27 +48,33 @@ def train(
     criterion,
     optimizer,
     device,
-    n_epoch,
+    epoch,
     hook=None,
     log_interval: int = 10,
+    dry_run: bool = False
 ):
     model.train()
     if hook:
         hook.set_mode(modes.TRAIN)
 
-    for epoch in range(n_epoch):
-        for batch_idx, (data, target) in enumerate(train_loader):
-            data, target = data.to(device), target.to(device)
-            optimizer.zero_grad()
-            output = model(data)
-            loss = criterion(output, target)
-            loss.backward()
-            optimizer.step()
-            if batch_idx % log_interval == 0:
-                print(
-                    f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} "
-                    f"({batch_idx / len(train_loader):.0%})]\tLoss: {loss.item():.6f}"
-                )
+    for batch_idx, (data, target) in enumerate(train_loader):
+        data, target = data.to(device), target.to(device)
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+        if batch_idx % log_interval == 0:
+            pred = output.max(1, keepdim=True)[1]  # get the index of the max log-probability
+            correct = pred.eq(target.view_as(pred)).sum().item()
+            accuracy = correct / pred.shape[0]
+            print(
+                f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} "
+                f"({batch_idx / len(train_loader):.0%})]\tLoss: {loss.item():.6f}"
+                f"\t Accuracy: {accuracy:.2%}"
+            )
+            if dry_run:
+                break
 
 
 def net(model_name):
@@ -146,21 +151,24 @@ def main(args):
         args.train, args.test, args.batch_size
     )
 
-    train(
-        model,
-        train_loader,
-        loss_criterion,
-        optimizer,
-        device,
-        args.epochs,
-        hook,
-        args.log_interval,
-    )
+    for epoch in range(args.epochs):
+        train(
+            model,
+            train_loader,
+            loss_criterion,
+            optimizer,
+            device,
+            epoch,
+            hook,
+            args.log_interval,
+            args.dry_run
+        )
 
-    test(model, test_loader, loss_criterion, device, hook)
+        test(model, test_loader, loss_criterion, device, hook)
 
-    with open(os.path.join(args.model_dir, "model.pth"), "wb") as f:
-        torch.save(model.state_dict(), f)
+    if not args.dry_run:
+        with open(os.path.join(args.model_dir, "model.pth"), "wb") as f:
+            torch.save(model.state_dict(), f)
 
 
 if __name__ == "__main__":
@@ -234,6 +242,12 @@ if __name__ == "__main__":
         default=os.environ.get("SM_MODEL_DIR", "/opt/ml/model"),
         metavar="TEXT",
         help="folder where the trained model will be saved",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        default=False,
+        help="quickly check a single pass"
     )
 
     args = parser.parse_args()
