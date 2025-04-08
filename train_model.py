@@ -1,7 +1,5 @@
 import argparse
-import logging
 import os
-import sys
 
 import torch
 import torch.nn as nn
@@ -17,11 +15,6 @@ from torch.utils.data import DataLoader
 # I had a problem with 'truncated image', setting this flag fixes the issue
 # See: https://discuss.pytorch.org/t/oserror-image-file-is-truncated-150-bytes-not-processed/64445
 ImageFile.LOAD_TRUNCATED_IMAGES = True
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler(sys.stdout)
-logger.addHandler(handler)
 
 NUM_CLASSES = 133
 
@@ -45,7 +38,7 @@ def test(model, test_loader, criterion, device, hook=None):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
         test_loss /= total
-    logger.info(
+    print(
         f"Test set: Average loss: {test_loss:.4f}, Accuracy: {correct}/{total} ({correct/total:.2%})"
     )
 
@@ -73,7 +66,7 @@ def train(
             loss.backward()
             optimizer.step()
             if batch_idx % log_interval == 0:
-                logger.info(
+                print(
                     f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} "
                     f"({batch_idx / len(train_loader):.0%})]\tLoss: {loss.item():.6f}"
                 )
@@ -136,7 +129,7 @@ def create_data_loaders(train_dir, test_dir, batch_size):
 def main(args):
 
     hook = get_hook(create_if_not_exists=True)
-    logger.info(f"My hook is {hook}")
+    print(f"My hook is {hook}")
     model = net(args.model_name)
 
     loss_criterion = nn.CrossEntropyLoss()
@@ -147,7 +140,7 @@ def main(args):
         hook.register_loss(loss_criterion)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Running on Device {device}")
+    print(f"Running on Device {device}")
 
     train_loader, test_loader = create_data_loaders(
         args.train, args.test, args.batch_size
