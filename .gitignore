@@ -252,5 +252,5 @@ fabric.properties
 .pypirc
 
 # Project specific
-**/*.jpg
+data/*
 **/*.pth
