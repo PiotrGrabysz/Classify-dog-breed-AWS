@@ -8,8 +8,7 @@ import torchvision
 import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import ImageFile
-from smdebug import modes
-from smdebug.pytorch import get_hook
+import smdebug.pytorch as smd
 from torch.utils.data import DataLoader
 
 # I had a problem with 'truncated image', setting this flag fixes the issue
@@ -22,7 +21,7 @@ NUM_CLASSES = 133
 def test(model, test_loader, criterion, device, hook=None):
     model.eval()
     if hook:
-        hook.set_mode(modes.EVAL)
+        hook.set_mode(smd.modes.EVAL)
 
     test_loss = 0
     correct = 0
@@ -55,7 +54,7 @@ def train(
 ):
     model.train()
     if hook:
-        hook.set_mode(modes.TRAIN)
+        hook.set_mode(smd.modes.TRAIN)
 
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -133,16 +132,16 @@ def create_data_loaders(train_dir, test_dir, batch_size):
 
 def main(args):
 
-    hook = get_hook(create_if_not_exists=True)
-    print(f"My hook is {hook}")
     model = net(args.model_name)
 
     loss_criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(
         model.parameters(), args.learning_rate, weight_decay=args.weight_decay
     )
-    if hook:
-        hook.register_loss(loss_criterion)
+    hook = smd.Hook.create_from_json_file()
+    hook.register_hook(model)
+    hook.register_loss(loss_criterion)
+    print(f"My hook is {hook}")
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Running on Device {device}")
