@@ -40,7 +40,7 @@ def test(model, test_loader, criterion, device, hook=None):
 
         test_loss /= total
     print(
-        f"Test set: Average loss: {test_loss:.4f}, Accuracy: {correct}/{total} ({correct/total:.2%})"
+        f"Test set: Average loss: {test_loss:.6f} | Accuracy: {correct}/{total} ({correct/total:.2%})"
     )
 
 
@@ -74,8 +74,8 @@ def train(
             accuracy = correct / pred.shape[0]
             print(
                 f"Train Epoch: {epoch} [{batch_idx * len(data)}/{len(train_loader.dataset)} "
-                f"({batch_idx / len(train_loader):.0%})]\tLoss: {loss.item():.6f}"
-                f"\t Accuracy: {accuracy:.2%}"
+                f"({batch_idx / len(train_loader):.0%})] | Loss: {loss.item():.6f} | "
+                f"Accuracy: {accuracy:.2%}"
             )
             if dry_run:
                 break
