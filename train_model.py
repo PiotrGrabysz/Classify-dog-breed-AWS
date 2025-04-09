@@ -153,10 +153,15 @@ def main(args):
     optimizer = optim.Adam(
         model.parameters(), args.learning_rate, weight_decay=args.weight_decay
     )
-    hook = create_hook()
-    hook.register_module(model)
-    hook.register_loss(loss_criterion)
-    print(f"My hook is {hook}")
+
+    hook = None
+    try:
+        hook = create_hook()
+        hook.register_module(model)
+        hook.register_loss(loss_criterion)
+        print(f"My hook is {hook}")
+    except AttributeError:
+        print("CANNOT CREATE THE SM DEBUG HOOK!")
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Running on Device {device}")
