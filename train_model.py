@@ -10,6 +10,7 @@ import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import ImageFile
 from torch.utils.data import DataLoader
+from smdebug.exceptions import SMDebugError
 
 # I had a problem with 'truncated image', setting this flag fixes the issue
 # See: https://discuss.pytorch.org/t/oserror-image-file-is-truncated-150-bytes-not-processed/64445
@@ -153,10 +154,15 @@ def main(args):
     optimizer = optim.Adam(
         model.parameters(), args.learning_rate, weight_decay=args.weight_decay
     )
-    hook = create_hook()
-    hook.register_module(model)
-    hook.register_loss(loss_criterion)
-    print(f"My hook is {hook}")
+
+    hook = None
+    try:
+        hook = create_hook()
+        hook.register_module(model)
+        hook.register_loss(loss_criterion)
+        print(f"My hook is {hook}")
+    except (SMDebugError, AttributeError):
+        print("CANNOT CREATE THE SM DEBUG HOOK!")
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     print(f"Running on Device {device}")
