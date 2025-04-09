@@ -147,8 +147,10 @@ def create_hook():
 
 
 def main(args):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    print(f"Running on Device {device}")
 
-    model = net(args.model_name)
+    model = net(args.model_name).to(device)
 
     loss_criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(
@@ -163,9 +165,6 @@ def main(args):
         print(f"My hook is {hook}")
     except (SMDebugError, AttributeError):
         print("CANNOT CREATE THE SM DEBUG HOOK!")
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"Running on Device {device}")
 
     train_loader, test_loader = create_data_loaders(
         args.train, args.test, args.batch_size
